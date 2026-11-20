@@ -1,4 +1,4 @@
-// Lấy bản dashboard bot Zalo đã kiểm (GET <BOT_URL>/dash/cho), kiểm lại, ghi index.html.
+// Lấy bản dashboard bot Zalo đã kiểm (GET <BOT_URL>/dash/cho), kiểm lại (phải KHOÁ TOÀN TRANG), ghi index.html.
 import fs from "node:fs";
 import crypto from "node:crypto";
 
@@ -15,25 +15,22 @@ if (r.status !== 200) { console.log("Bot trả HTTP", r.status); process.exit(0)
 const html = await r.text();
 if (sha(html) !== r.headers.get("x-dash-sha")) throw new Error("sha không khớp, bỏ qua");
 
-const m = /<script id="du-lieu">window\.__DATA=(\{[\s\S]*?\});window\.__BAN="([a-z_]+)";<\/script>/.exec(html);
+if (/<script id="du-lieu">window\.__DATA=\{/.test(html)) throw new Error("KHÔNG đẩy: dữ liệu để trần (chưa khoá toàn trang / bản nội bộ)");
+const m = /<script id="du-lieu">window\.__DATA=null;window\.__KHOA_TOAN=(\{[^<]*?\});window\.__THONG_TIN=(\{[^<]*?\});window\.__BAN="([a-z_]+)";<\/script>/.exec(html);
 if (!m) throw new Error("không đọc được khối dữ liệu");
-const D = JSON.parse(m[1]);
+const K = JSON.parse(m[1]), T = JSON.parse(m[2]);
 const loi = [];
-if (m[2] !== "cong_bo") loi.push("bản nội bộ");
-if (!D.khoa?.c) loi.push("chưa mã hoá Deal/Mass");
-const n = D.nhom ?? {};
-if ((n.nhom ?? []).length || (n.loai ?? []).length || Object.keys(n.ls_nhom ?? {}).length) loi.push("còn số liệu Deal/Mass");
-if (D.ct) loi.push("còn danh sách khách hàng");
-if (D.tk_cn) loi.push("còn danh bạ tài khoản");
-if (/"duno_(?!bq")[^"]*"\s*:/.test(JSON.stringify(D.nhap ?? {}))) loi.push("còn dư nợ Deal/Mass trong số nhập tay");
-for (const cn of ["HN", "HCM", "DN", "CT"]) if (D.kt?.[cn]?.duno_loai) loi.push("còn dư nợ chia nhóm " + cn);
+if (m[3] !== "cong_bo") loi.push("bản nội bộ");
+if (!(K.c && K.s && K.i && K.n >= 600000)) loi.push("khối mã hoá không hợp lệ");
+if (!/<script type="text\/plain" id="ma-chinh">/.test(html)) loi.push("mã chính chưa bị khoá");
+if (!/id="manKhoa"/.test(html)) loi.push("thiếu màn hình passcode");
+if (/"(ten_kh|tk_cn|ten_nhom)"\s*:/.test(html.replace(/<script type="text\/plain" id="ma-chinh">[\s\S]*?<\/script>/, ""))) loi.push("có dữ liệu để trần");
 if (loi.length) throw new Error("KHÔNG đẩy: " + loi.join("; "));
 
 const cu = fs.existsSync("index.html") ? fs.readFileSync("index.html", "utf8") : "";
 if (sha(cu) === sha(html)) { console.log("Giống bản hiện tại."); process.exit(0); }
 fs.writeFileSync("index.html", html);
-const t = D.meta.thang;
 out("co_ban", "1");
-out("ky", `T${t[0]}-T${t[t.length - 1]}/${D.meta.nam}`);
+out("ky", String(T.ky || "mới").replace(/[\r\n"]/g, " "));
 out("nguoi", decodeURIComponent(r.headers.get("x-dash-by") || "Zalo").replace(/[\r\n"]/g, " "));
-console.log("Đã ghi index.html, kỳ", `T${t[0]}-T${t[t.length - 1]}`);
+console.log("Đã ghi index.html, kỳ", T.ky);
