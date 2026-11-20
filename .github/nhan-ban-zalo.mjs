@@ -24,6 +24,8 @@ if (!D.khoa?.c) loi.push("chưa mã hoá Deal/Mass");
 const n = D.nhom ?? {};
 if ((n.nhom ?? []).length || (n.loai ?? []).length || Object.keys(n.ls_nhom ?? {}).length) loi.push("còn số liệu Deal/Mass");
 if (D.ct) loi.push("còn danh sách khách hàng");
+if (D.tk_cn) loi.push("còn danh bạ tài khoản");
+if (/"duno_(?!bq")[^"]*"\s*:/.test(JSON.stringify(D.nhap ?? {}))) loi.push("còn dư nợ Deal/Mass trong số nhập tay");
 for (const cn of ["HN", "HCM", "DN", "CT"]) if (D.kt?.[cn]?.duno_loai) loi.push("còn dư nợ chia nhóm " + cn);
 if (loi.length) throw new Error("KHÔNG đẩy: " + loi.join("; "));
 
