@@ -1,0 +1,40 @@
+name: Nhận bản dashboard từ bot Zalo
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: nhan-ban-zalo
+  cancel-in-progress: false
+
+jobs:
+  nhan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - id: lay
+        env:
+          BOT_URL: https://zalo-bot-3sgj.onrender.com
+        run: node .github/nhan-ban-zalo.mjs
+      - if: steps.lay.outputs.co_ban == '1'
+        env:
+          KY: ${{ steps.lay.outputs.ky }}
+          NGUOI: ${{ steps.lay.outputs.nguoi }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Cập nhật dashboard $KY (Zalo: $NGUOI)"
+          git push
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" || true
